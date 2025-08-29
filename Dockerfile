@@ -1,25 +1,9 @@
-# ---------- Stage 1: Wheel builder ----------
-FROM python:3.10-slim AS wheels
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates git build-essential ffmpeg \
- && rm -rf /var/lib/apt/lists/*
-ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=100
-WORKDIR /opt/build
-COPY constraints.txt requirements-base.txt requirements-nodes.txt ./
-RUN pip install --upgrade pip \
- && mkdir -p /opt/wheels \
- && pip download --dest /opt/wheels -c constraints.txt -r requirements-base.txt \
- && pip download --dest /opt/wheels -c constraints.txt -r requirements-nodes.txt \
- && pip download --dest /opt/wheels git+https://github.com/ltdrdata/img2texture.git \
- && pip download --dest /opt/wheels git+https://github.com/ltdrdata/cstr \
- && pip download --dest /opt/wheels git+https://github.com/ltdrdata/ffmpy.git
-
-# ---------- Stage 2: Runtime ----------
 FROM python:3.10-slim
 ARG DEBIAN_FRONTEND=noninteractive
+
+# System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
+    curl ca-certificates git ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
     fonts-dejavu-core tini rsync \
  && rm -rf /var/lib/apt/lists/*
 
@@ -33,30 +17,27 @@ USER ${USER}
 WORKDIR /home/${USER}
 RUN python -m venv /home/${USER}/venv
 ENV PATH=/home/${USER}/venv/bin:$PATH
-ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=100
+ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=100 PIP_NO_CACHE_DIR=1
 
-# Offline wheels
-COPY --from=wheels /opt/wheels /opt/wheels
+# Python deps (NumPy 1.x + OpenCV 4.10 track)
 COPY constraints.txt requirements-base.txt requirements-nodes.txt /tmp/
-RUN pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /tmp/requirements-base.txt \
- && pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt \
- && pip install --no-index --find-links=/opt/wheels img2texture cstr ffmpy
+RUN pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt \
+ && pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt \
+ && pip install git+https://github.com/ltdrdata/img2texture.git \
+               git+https://github.com/ltdrdata/cstr \
+               git+https://github.com/ltdrdata/ffmpy.git
 
-# ---- ComfyUI (robust codeload fetch with fallbacks) ----
+# ComfyUI (robust tarball fetch with fallbacks)
 ARG COMFY_REF=refs/heads/master
 RUN set -eux; \
   for ref in "$COMFY_REF" "refs/heads/master" "refs/heads/main"; do \
     url="https://codeload.github.com/comfyanonymous/ComfyUI/tar.gz/${ref}"; \
     echo "Trying $url"; \
-    if curl -fLs -o /tmp/ComfyUI.tgz "$url"; then \
-      echo "Downloaded $ref"; \
-      break; \
-    fi; \
+    if curl -fLs -o /tmp/ComfyUI.tgz "$url"; then echo "Downloaded $ref"; break; fi; \
   done; \
   [ -s /tmp/ComfyUI.tgz ]; \
   topdir="$(tar -tzf /tmp/ComfyUI.tgz | head -1 | cut -f1 -d/)"; \
-  tar -xzf /tmp/ComfyUI.tgz -C /home/${USER}; \
-  rm -f /tmp/ComfyUI.tgz; \
+  tar -xzf /tmp/ComfyUI.tgz -C /home/${USER}; rm -f /tmp/ComfyUI.tgz; \
   mv "/home/${USER}/${topdir}" "/home/${USER}/ComfyUI"
 
 # Persist caches to PV
@@ -68,10 +49,11 @@ ENV HF_HOME=/workspace/.cache/huggingface \
     NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
+# Optional kernel warmup (will no-op on CI)
 COPY --chown=${USER}:${USER} warmup.py /home/${USER}/warmup.py
 RUN python /home/${USER}/warmup.py || true
 
-# Copy entrypoint with correct owner+mode so no chmod needed
+# Entrypoint
 COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/${USER}/entrypoint.sh
 
 EXPOSE 8188 8080
