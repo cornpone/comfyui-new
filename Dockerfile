@@ -42,13 +42,23 @@ RUN pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /
  && pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt \
  && pip install --no-index --find-links=/opt/wheels img2texture cstr ffmpy
 
-# ComfyUI (download tarball via codeload; robust rename)
-ARG COMFY_COMMIT=32a95bba3c7e1b2f6f2a46f0f2c9a5c2e9b3d1a2
+# ---- ComfyUI (robust codeload fetch with fallbacks) ----
+# You can set COMFY_REF at build time to a commit or ref; we default to master.
+ARG COMFY_REF=refs/heads/master
 RUN set -eux; \
-  curl -fL "https://codeload.github.com/comfyanonymous/ComfyUI/tar.gz/${COMFY_COMMIT}" -o /tmp/ComfyUI.tgz; \
+  for ref in "$COMFY_REF" "refs/heads/master" "refs/heads/main"; do \
+    url="https://codeload.github.com/comfyanonymous/ComfyUI/tar.gz/${ref}"; \
+    echo "Trying $url"; \
+    if curl -fLs -o /tmp/ComfyUI.tgz "$url"; then \
+      echo "Downloaded $ref"; \
+      break; \
+    fi; \
+  done; \
+  [ -s /tmp/ComfyUI.tgz ]; \
+  topdir="$(tar -tzf /tmp/ComfyUI.tgz | head -1 | cut -f1 -d/)"; \
   tar -xzf /tmp/ComfyUI.tgz -C /home/${USER}; \
   rm -f /tmp/ComfyUI.tgz; \
-  mv /home/${USER}/ComfyUI-* /home/${USER}/ComfyUI
+  mv "/home/${USER}/${topdir}" "/home/${USER}/ComfyUI"
 
 # Persist caches to PV
 ENV HF_HOME=/workspace/.cache/huggingface \
