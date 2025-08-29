@@ -2,7 +2,7 @@
 FROM python:3.10-slim AS wheels
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl ca-certificates build-essential ffmpeg \
+    curl ca-certificates git build-essential ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=100
 WORKDIR /opt/build
@@ -19,14 +19,14 @@ RUN pip install --upgrade pip \
 FROM python:3.10-slim
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
+    curl ca-certificates ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
     fonts-dejavu-core tini rsync \
  && rm -rf /var/lib/apt/lists/*
 
-# Install Code-Server
+# Code-Server
 RUN curl -fsSL https://code-server.dev/install.sh | sh
 
-# Non-root user + venv
+# Non-root + venv
 ARG USER=app
 RUN useradd -m -s /bin/bash ${USER}
 USER ${USER}
@@ -35,19 +35,21 @@ RUN python -m venv /home/${USER}/venv
 ENV PATH=/home/${USER}/venv/bin:$PATH
 ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=100
 
-# Offline install from wheelhouse
+# Offline wheels
 COPY --from=wheels /opt/wheels /opt/wheels
 COPY constraints.txt requirements-base.txt requirements-nodes.txt /tmp/
 RUN pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /tmp/requirements-base.txt \
  && pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt \
  && pip install --no-index --find-links=/opt/wheels img2texture cstr ffmpy
 
-# ComfyUI (pin known-good commit)
-ARG COMFY_COMMIT=32a95bba3c7e1b2f6f2c9a5c2e9b3d1a2
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI \
- && cd /home/${USER}/ComfyUI && git checkout ${COMFY_COMMIT}
+# ComfyUI (download tarball; no git)
+ARG COMFY_COMMIT=32a95bba3c7e1b2f6f2a46f0f2c9a5c2e9b3d1a2
+RUN mkdir -p /home/${USER}/ComfyUI \
+ && curl -L "https://github.com/comfyanonymous/ComfyUI/archive/${COMFY_COMMIT}.tar.gz" \
+ | tar -xz -C /home/${USER} \
+ && mv /home/${USER}/ComfyUI-${COMFY_COMMIT} /home/${USER}/ComfyUI
 
-# Persist caches to PV
+# PV caches
 ENV HF_HOME=/workspace/.cache/huggingface \
     TORCH_HOME=/workspace/.cache/torch \
     TORCHINDUCTOR_CACHE_DIR=/workspace/.cache/torch/inductor \
