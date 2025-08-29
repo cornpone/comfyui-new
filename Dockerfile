@@ -57,5 +57,5 @@ RUN python /home/${USER}/warmup.py || true
 COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/${USER}/entrypoint.sh
 
 EXPOSE 8188 8080
-ENTRYPOINT ["/usr/bin/tini","--"]
+ENTRYPOINT ["/usr/bin/tini","-s","--"]
 CMD ["/home/app/entrypoint.sh"]
