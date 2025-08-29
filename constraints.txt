@@ -26,3 +26,4 @@ pydantic-core==2.33.2
 pydantic-settings==2.10.1
 regex==2025.7.34
 fsspec==2025.7.0
+torchsde==0.2.6
