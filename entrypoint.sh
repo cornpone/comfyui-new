@@ -1,49 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMFY_ROOT_PV="/workspace/ComfyUI"
-MODELS_A="$COMFY_ROOT_PV/models"
-MODELS_B="/workspace/models"
+# --- Config (single root; override with env MODELS_ROOT if you ever want) ---
+MODELS_ROOT="${MODELS_ROOT:-/workspace/models}"
+COMFY_DIR="/workspace/ComfyUI"
+EXTRA_YAML="$COMFY_DIR/extra_model_paths.yaml"
 OUTPUT_DIR="/workspace/output"
-EXTRA_YAML="$COMFY_ROOT_PV/extra_model_paths.yaml"
-PATHS_LOG="/workspace/startup.paths"
 CATS=(checkpoints loras vae controlnet clip clip_vision upscale_models unet embeddings)
 
-# Caches (harmless)
+# --- Caches (harmless) ---
 mkdir -p /workspace/.cache/torch/inductor /workspace/.cache/triton /workspace/.cache/huggingface
 
-# First-run code copy only (NO deletes)
-if [ ! -d "$COMFY_ROOT_PV" ]; then
-  mkdir -p "$COMFY_ROOT_PV"
-  rsync -a /home/app/ComfyUI/ "$COMFY_ROOT_PV"/ || true
+# --- First-run: copy code to PV (copy-only; never delete) ---
+if [ ! -d "$COMFY_DIR" ]; then
+  mkdir -p "$COMFY_DIR"
+  rsync -a /home/app/ComfyUI/ "$COMFY_DIR"/ || true
 fi
 
-# Ensure common dirs (never touch existing content)
-mkdir -p "$MODELS_A" "$MODELS_B" "$OUTPUT_DIR"
+# --- Ensure model/output dirs (no touching existing content) ---
+mkdir -p "$MODELS_ROOT" "$OUTPUT_DIR"
+for c in "${CATS[@]}"; do mkdir -p "$MODELS_ROOT/$c"; done
 
-# Generate extra_model_paths.yaml once (or set REGEN_EXTRA_PATHS=1 to force)
+# --- Generate extra_model_paths.yaml (single-path, block scalars) ---
 if [ ! -f "$EXTRA_YAML" ] || [ "${REGEN_EXTRA_PATHS:-0}" = "1" ]; then
   {
-    for cat in "${CATS[@]}"; do
-      echo "$cat: [$MODELS_A/$cat, $MODELS_B/$cat, /workspace/$cat]"
+    for c in "${CATS[@]}"; do
+      echo "$c: |"
+      echo "  ${MODELS_ROOT}/${c}"
     done
   } > "$EXTRA_YAML"
 fi
 
-# Log scan paths
-{
-  echo "=== ComfyUI model scan paths ($(date -u +'%Y-%m-%dT%H:%M:%SZ')) ==="
-  cat "$EXTRA_YAML"
-} > "$PATHS_LOG" || true
-
-# Code-Server
+# --- Code-Server (auth with PASSWORD if set) ---
 CS_AUTH="none"; [ -n "${PASSWORD:-}" ] && CS_AUTH="password"
 code-server --bind-addr 0.0.0.0:8080 --auth "$CS_AUTH" /workspace &
 
-# Ensure ComfyUI frontend present (self-heal)
+# --- Ensure ComfyUI frontend present (self-heal, no-op if already installed) ---
 if ! /home/app/venv/bin/pip show comfyui-frontend-package >/dev/null 2>&1; then
-  /home/app/venv/bin/pip install --no-cache-dir -r "$COMFY_ROOT_PV/requirements.txt"
+  /home/app/venv/bin/pip install --no-cache-dir -r "$COMFY_DIR/requirements.txt"
 fi
 
-cd "$COMFY_ROOT_PV"
+# --- Run ComfyUI ---
+cd "$COMFY_DIR"
 exec /home/app/venv/bin/python main.py --listen 0.0.0.0 --port 8188
