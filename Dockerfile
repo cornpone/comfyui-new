@@ -43,7 +43,6 @@ RUN pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /
  && pip install --no-index --find-links=/opt/wheels img2texture cstr ffmpy
 
 # ---- ComfyUI (robust codeload fetch with fallbacks) ----
-# You can set COMFY_REF at build time to a commit or ref; we default to master.
 ARG COMFY_REF=refs/heads/master
 RUN set -eux; \
   for ref in "$COMFY_REF" "refs/heads/master" "refs/heads/main"; do \
@@ -69,11 +68,11 @@ ENV HF_HOME=/workspace/.cache/huggingface \
     NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-COPY warmup.py /home/${USER}/warmup.py
+COPY --chown=${USER}:${USER} warmup.py /home/${USER}/warmup.py
 RUN python /home/${USER}/warmup.py || true
 
-COPY entrypoint.sh /home/${USER}/entrypoint.sh
-RUN chmod +x /home/${USER}/entrypoint.sh
+# Copy entrypoint with correct owner+mode so no chmod needed
+COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/${USER}/entrypoint.sh
 
 EXPOSE 8188 8080
 ENTRYPOINT ["/usr/bin/tini","--"]
