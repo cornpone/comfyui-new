@@ -42,14 +42,15 @@ RUN pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /
  && pip install --no-index --find-links=/opt/wheels -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt \
  && pip install --no-index --find-links=/opt/wheels img2texture cstr ffmpy
 
-# ComfyUI (download tarball; no git)
+# ComfyUI (download tarball via codeload; robust rename)
 ARG COMFY_COMMIT=32a95bba3c7e1b2f6f2a46f0f2c9a5c2e9b3d1a2
-RUN mkdir -p /home/${USER}/ComfyUI \
- && curl -L "https://github.com/comfyanonymous/ComfyUI/archive/${COMFY_COMMIT}.tar.gz" \
- | tar -xz -C /home/${USER} \
- && mv /home/${USER}/ComfyUI-${COMFY_COMMIT} /home/${USER}/ComfyUI
+RUN set -eux; \
+  curl -fL "https://codeload.github.com/comfyanonymous/ComfyUI/tar.gz/${COMFY_COMMIT}" -o /tmp/ComfyUI.tgz; \
+  tar -xzf /tmp/ComfyUI.tgz -C /home/${USER}; \
+  rm -f /tmp/ComfyUI.tgz; \
+  mv /home/${USER}/ComfyUI-* /home/${USER}/ComfyUI
 
-# PV caches
+# Persist caches to PV
 ENV HF_HOME=/workspace/.cache/huggingface \
     TORCH_HOME=/workspace/.cache/torch \
     TORCHINDUCTOR_CACHE_DIR=/workspace/.cache/torch/inductor \
