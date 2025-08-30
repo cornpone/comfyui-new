@@ -39,7 +39,6 @@ RUN set -eux; \
   topdir="$(tar -tzf /tmp/ComfyUI.tgz | head -1 | cut -f1 -d/)"; \
   tar -xzf /tmp/ComfyUI.tgz -C /home/${USER}; rm -f /tmp/ComfyUI.tgz; \
   mv "/home/${USER}/${topdir}" "/home/${USER}/ComfyUI"
-RUN /home/${USER}/venv/bin/pip install --no-cache-dir uv==0.2.40 gitpython==3.1.43
 
 # Persist caches to PV
 ENV HF_HOME=/workspace/.cache/huggingface \
