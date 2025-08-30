@@ -1,0 +1,28 @@
+FROM python:3.10-slim
+ARG DEBIAN_FRONTEND=noninteractive
+ARG USER=app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates git ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
+    fonts-dejavu-core tini rsync \
+ && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://code-server.dev/install.sh | sh
+RUN useradd -m -s /bin/bash ${USER}
+USER ${USER}
+WORKDIR /home/${USER}
+RUN python -m venv /home/${USER}/venv
+ENV PATH=/home/${USER}/venv/bin:$PATH
+ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=180 PIP_NO_CACHE_DIR=1
+ARG COMFY_REF=refs/heads/master
+RUN set -eux; \
+  for ref in "$COMFY_REF" "refs/heads/master" "refs/heads/main"; do \
+    url="https://codeload.github.com/comfyanonymous/ComfyUI/tar.gz/${ref}"; \
+    if curl -fLs -o /tmp/ComfyUI.tgz "$url"; then break; fi; \
+  done; \
+  test -s /tmp/ComfyUI.tgz; \
+  topdir="$(tar -tzf /tmp/ComfyUI.tgz | head -1 | cut -f1 -d/)"; \
+  tar -xzf /tmp/ComfyUI.tgz -C /home/${USER}; rm -f /tmp/ComfyUI.tgz; \
+  mv "/home/${USER}/${topdir}" "/home/${USER}/ComfyUI"
+COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/${USER}/entrypoint.sh
+EXPOSE 8188 8080
+ENTRYPOINT ["/usr/bin/tini","-s","--"]
+CMD ["/home/app/entrypoint.sh"]
