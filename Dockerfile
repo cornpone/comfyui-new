@@ -21,10 +21,9 @@ ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=100 PIP_N
 
 # Python deps (NumPy 1.x + OpenCV 4.10 track)
 COPY constraints.txt requirements-base.txt requirements-nodes.txt /tmp/
-RUN /home/${USER}/venv/bin/pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt \
- && pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt \
-
-# ComfyUI (robust tarball fetch with fallbacks)
+RUN /home/${USER}/venv/bin/python -m pip install --upgrade --no-cache-dir pip setuptools wheel
+RUN /home/${USER}/venv/bin/pip install --no-cache-dir --prefer-binary -c /tmp/constraints.txt -r /tmp/requirements-base.txt
+RUN /home/${USER}/venv/bin/pip install --no-cache-dir --prefer-binary -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt
 ARG COMFY_REF=refs/heads/master
 RUN set -eux; \
   for ref in "$COMFY_REF" "refs/heads/master" "refs/heads/main"; do \
