@@ -10,3 +10,6 @@ numba==0.59.1
 scikit-image==0.24.0
 deepdiff==7.0.1
 onnxruntime==1.18.1
+
+uv==0.2.40
+gitpython==3.1.43
