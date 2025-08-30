@@ -21,11 +21,8 @@ ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=100 PIP_N
 
 # Python deps (NumPy 1.x + OpenCV 4.10 track)
 COPY constraints.txt requirements-base.txt requirements-nodes.txt /tmp/
-RUN pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt \
+RUN /home/${USER}/venv/bin/pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt \
  && pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt \
- && pip install git+https://github.com/ltdrdata/img2texture.git \
-               git+https://github.com/ltdrdata/cstr \
-               git+https://github.com/ltdrdata/ffmpy.git
 
 # ComfyUI (robust tarball fetch with fallbacks)
 ARG COMFY_REF=refs/heads/master
