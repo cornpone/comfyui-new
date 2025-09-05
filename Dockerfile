@@ -25,12 +25,17 @@ RUN pip install --upgrade pip && \
     pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt && \
     pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt
 
-# Clone ComfyUI and Impact-Pack
+# Clone ComfyUI and all required custom nodes
 ARG COMFY_REF=master
 RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && \
     rm -rf /home/${USER}/ComfyUI/.git
+
+# --- MODIFIED: Added ComfyUI-Manager clone ---
 RUN cd /home/${USER}/ComfyUI/custom_nodes && \
+    echo "Cloning custom nodes..." && \
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
+    git clone https://github.com/Comfy-Org/ComfyUI-Manager.git && \
+    echo "Installing dependencies for Impact-Pack..." && \
     cd ComfyUI-Impact-Pack && \
     COMFYUI_PATH=/home/app/ComfyUI /home/app/venv/bin/python install.py
 
@@ -40,10 +45,10 @@ FROM python:3.10-slim-bookworm
 ARG DEBIAN_FRONTEND=noninteractive
 ARG USER=app
 
-# Install only RUNTIME system dependencies
+# Install RUNTIME system dependencies (including git for ComfyUI-Manager)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
-    fonts-dejavu-core tini rsync \
+    fonts-dejavu-core tini rsync git curl \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install code-server
@@ -54,7 +59,7 @@ RUN useradd -m -s /bin/bash ${USER}
 USER ${USER}
 WORKDIR /home/${USER}
 
-# Copy the pre-built virtual environment and application code from the builder stage
+# Copy the pre-built application from the builder stage
 COPY --from=builder --chown=${USER}:${USER} /home/${USER}/venv /home/${USER}/venv
 COPY --from=builder --chown=${USER}:${USER} /home/${USER}/ComfyUI /home/${USER}/ComfyUI
 
