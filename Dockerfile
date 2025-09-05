@@ -30,16 +30,17 @@ RUN pip install --upgrade pip && \
     pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt && \
     pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt
 
-# --- MODIFIED: Clone ComfyUI from its Git repository ---
+# Clone ComfyUI from its Git repository
 ARG COMFY_REF=master
 RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && \
     rm -rf /home/${USER}/ComfyUI/.git
 
-# Install ComfyUI-Impact-Pack custom node
+# --- MODIFIED: Explicitly set COMFYUI_PATH for Impact-Pack installer ---
+# This removes the warning and makes the build more robust.
 RUN cd /home/${USER}/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
     cd ComfyUI-Impact-Pack && \
-    /home/${USER}/venv/bin/python install.py
+    COMFYUI_PATH=/home/app/ComfyUI /home/app/venv/bin/python install.py
 
 # Set environment variables for persisting critical caches
 # Model caches are persisted to the volume for faster startups.
@@ -54,7 +55,7 @@ ENV HF_HOME=/workspace/.cache/huggingface \
 
 # Optional kernel warmup
 COPY --chown=${USER}:${USER} warmup.py /home/${USER}/warmup.py
-RUN python /home/${USER}/warmup.py
+RUN python /home/USER/warmup.py
 
 # Entrypoint setup
 COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/${USER}/entrypoint.sh
