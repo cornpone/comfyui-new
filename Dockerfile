@@ -19,7 +19,8 @@ WORKDIR /home/${USER}
 # Create and set up a virtual environment
 RUN python -m venv /home/${USER}/venv
 ENV PATH=/home/${USER}/venv/bin:$PATH
-ENV PIP_NO_INPUT=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_DEFAULT_TIMEOUT=100 PIP_NO_CACHE_DIR=1
+# Move pip's cache to ephemeral storage, it doesn't need to be persisted
+ENV PIP_CACHE_DIR=/tmp/pip-cache
 
 # Python dependencies
 # Use PyTorch's index for better compatibility
@@ -40,12 +41,20 @@ RUN set -eux; \
     rm /tmp/ComfyUI.tgz; \
     mv "/home/${USER}/${topdir}" "/home/${USER}/ComfyUI"
 
-# Set environment variables for persisting caches
+# --- NEW: Install ComfyUI-Impact-Pack custom node ---
+RUN cd /home/${USER}/ComfyUI/custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
+    cd ComfyUI-Impact-Pack && \
+    /home/${USER}/venv/bin/python install.py
+
+# --- MODIFIED: Set environment variables for persisting critical caches ---
+# Model caches are persisted to the volume for faster startups.
+# Smaller compiler caches are moved to ephemeral storage inside the container.
 ENV HF_HOME=/workspace/.cache/huggingface \
     TORCH_HOME=/workspace/.cache/torch \
-    TORCHINDUCTOR_CACHE_DIR=/workspace/.cache/torch/inductor \
-    TRITON_CACHE_DIR=/workspace/.cache/triton \
     XDG_CACHE_HOME=/workspace/.cache \
+    TORCHINDUCTOR_CACHE_DIR=/tmp/torch-inductor-cache \
+    TRITON_CACHE_DIR=/tmp/triton-cache \
     NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
