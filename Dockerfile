@@ -30,24 +30,18 @@ RUN pip install --upgrade pip && \
     pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt && \
     pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt
 
-# Download and install ComfyUI
+# --- MODIFIED: Clone ComfyUI from its Git repository ---
 ARG COMFY_REF=master
-RUN set -eux; \
-    url="https://codeload.github.com/comfyanonymous/ComfyUI/tar.gz/refs/heads/${COMFY_REF}"; \
-    echo "Downloading ComfyUI from $url"; \
-    curl -fLs -o /tmp/ComfyUI.tgz "$url"; \
-    topdir="$(tar -tzf /tmp/ComfyUI.tgz | head -1 | cut -f1 -d/)"; \
-    tar -xzf /tmp/ComfyUI.tgz -C /home/${USER}; \
-    rm /tmp/ComfyUI.tgz; \
-    mv "/home/${USER}/${topdir}" "/home/${USER}/ComfyUI"
+RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && \
+    rm -rf /home/${USER}/ComfyUI/.git
 
-# --- NEW: Install ComfyUI-Impact-Pack custom node ---
+# Install ComfyUI-Impact-Pack custom node
 RUN cd /home/${USER}/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
     cd ComfyUI-Impact-Pack && \
     /home/${USER}/venv/bin/python install.py
 
-# --- MODIFIED: Set environment variables for persisting critical caches ---
+# Set environment variables for persisting critical caches
 # Model caches are persisted to the volume for faster startups.
 # Smaller compiler caches are moved to ephemeral storage inside the container.
 ENV HF_HOME=/workspace/.cache/huggingface \
