@@ -1,49 +1,65 @@
-FROM python:3.10-slim-bookworm
-ARG DEBIAN_FRONTEND=noninteractive
+# --- Stage 1: The Builder ---
+FROM python:3.10-slim-bookworm AS builder
 
-# System dependencies
+ARG DEBIAN_FRONTEND=noninteractive
+ARG USER=app
+
+# Install build-time system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates git ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
-    fonts-dejavu-core tini rsync build-essential \
+    curl ca-certificates git build-essential \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install code-server
-RUN curl -fsSL https://code-server.dev/install.sh | sh
-
-# Create a non-root user
-ARG USER=app
+# Create user and directories
 RUN useradd -m -s /bin/bash ${USER}
-USER ${USER}
 WORKDIR /home/${USER}
 
 # Create and set up a virtual environment
 RUN python -m venv /home/${USER}/venv
 ENV PATH=/home/${USER}/venv/bin:$PATH
-# Move pip's cache to ephemeral storage, it doesn't need to be persisted
-ENV PIP_CACHE_DIR=/tmp/pip-cache
 
-# Python dependencies
-# Use PyTorch's index for better compatibility
+# Install Python dependencies
+ENV PIP_CACHE_DIR=/tmp/pip-cache
 ENV PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cu121"
 COPY constraints.txt requirements-base.txt requirements-nodes.txt /tmp/
 RUN pip install --upgrade pip && \
     pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt && \
     pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt
 
-# Clone ComfyUI from its Git repository
+# Clone ComfyUI and Impact-Pack
 ARG COMFY_REF=master
 RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && \
     rm -rf /home/${USER}/ComfyUI/.git
-
-# Install ComfyUI-Impact-Pack custom node
 RUN cd /home/${USER}/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
     cd ComfyUI-Impact-Pack && \
     COMFYUI_PATH=/home/app/ComfyUI /home/app/venv/bin/python install.py
 
-# Set environment variables for persisting critical caches
-# Model caches are persisted to the volume for faster startups.
-# Smaller compiler caches are moved to ephemeral storage inside the container.
+# --- Stage 2: The Final Image ---
+FROM python:3.10-slim-bookworm
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG USER=app
+
+# Install only RUNTIME system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
+    fonts-dejavu-core tini rsync \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install code-server
+RUN curl -fsSL https://code-server.dev/install.sh | sh
+
+# Create user
+RUN useradd -m -s /bin/bash ${USER}
+USER ${USER}
+WORKDIR /home/${USER}
+
+# Copy the pre-built virtual environment and application code from the builder stage
+COPY --from=builder --chown=${USER}:${USER} /home/${USER}/venv /home/${USER}/venv
+COPY --from=builder --chown=${USER}:${USER} /home/${USER}/ComfyUI /home/${USER}/ComfyUI
+
+# Set environment variables
+ENV PATH=/home/${USER}/venv/bin:$PATH
 ENV HF_HOME=/workspace/.cache/huggingface \
     TORCH_HOME=/workspace/.cache/torch \
     XDG_CACHE_HOME=/workspace/.cache \
@@ -52,12 +68,10 @@ ENV HF_HOME=/workspace/.cache/huggingface \
     NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Optional kernel warmup
+# Copy entrypoint and warmup scripts
 COPY --chown=${USER}:${USER} warmup.py /home/${USER}/warmup.py
-# --- MODIFIED: Corrected the path to use the ${USER} variable ---
 RUN python /home/${USER}/warmup.py
 
-# Entrypoint setup
 COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/${USER}/entrypoint.sh
 EXPOSE 8188 8080
 ENTRYPOINT ["/usr/bin/tini", "-s", "--"]

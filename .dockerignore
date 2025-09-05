@@ -1,7 +1,7 @@
 .git
-__pycache__/
+.gitignore
+.gitattributes
+__pycache__
 *.pyc
-*.pyo
-*.pyd
-.env
-.workspace
+.venv
+venv
