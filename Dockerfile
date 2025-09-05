@@ -35,8 +35,7 @@ ARG COMFY_REF=master
 RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && \
     rm -rf /home/${USER}/ComfyUI/.git
 
-# --- MODIFIED: Explicitly set COMFYUI_PATH for Impact-Pack installer ---
-# This removes the warning and makes the build more robust.
+# Install ComfyUI-Impact-Pack custom node
 RUN cd /home/${USER}/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
     cd ComfyUI-Impact-Pack && \
@@ -55,7 +54,8 @@ ENV HF_HOME=/workspace/.cache/huggingface \
 
 # Optional kernel warmup
 COPY --chown=${USER}:${USER} warmup.py /home/${USER}/warmup.py
-RUN python /home/USER/warmup.py
+# --- MODIFIED: Corrected the path to use the ${USER} variable ---
+RUN python /home/${USER}/warmup.py
 
 # Entrypoint setup
 COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/${USER}/entrypoint.sh
