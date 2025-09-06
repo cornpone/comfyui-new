@@ -30,7 +30,6 @@ ARG COMFY_REF=master
 RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && \
     rm -rf /home/${USER}/ComfyUI/.git
 
-# --- MODIFIED: Added ComfyUI-Manager clone ---
 RUN cd /home/${USER}/ComfyUI/custom_nodes && \
     echo "Cloning custom nodes..." && \
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
@@ -63,6 +62,7 @@ WORKDIR /home/${USER}
 COPY --from=builder --chown=${USER}:${USER} /home/${USER}/venv /home/${USER}/venv
 COPY --from=builder --chown=${USER}:${USER} /home/${USER}/ComfyUI /home/${USER}/ComfyUI
 
+# --- MODIFIED: Added environment variable to control the Manager ---
 # Set environment variables
 ENV PATH=/home/${USER}/venv/bin:$PATH
 ENV HF_HOME=/workspace/.cache/huggingface \
@@ -71,7 +71,8 @@ ENV HF_HOME=/workspace/.cache/huggingface \
     TORCHINDUCTOR_CACHE_DIR=/tmp/torch-inductor-cache \
     TRITON_CACHE_DIR=/tmp/triton-cache \
     NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    COMFYUI_MANAGER_DONT_INSTALL_PREREQS=1
 
 # Copy entrypoint and warmup scripts
 COPY --chown=${USER}:${USER} warmup.py /home/${USER}/warmup.py

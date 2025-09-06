@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# --- MODIFIED: Safer check for existence ---
 # Link the ComfyUI folder to /workspace for easier access, but only if it doesn't exist.
 if [ ! -e "/workspace/ComfyUI" ]; then
   ln -s "/home/app/ComfyUI" "/workspace/ComfyUI"
@@ -20,7 +19,7 @@ else
   echo "code-server not found, skipping startup."
 fi
 
-# --- MODIFIED: Added --disable-manager-auto-install ---
-# Start ComfyUI, preventing the Manager from re-installing dependencies.
+# --- MODIFIED: Removed the unrecognized argument ---
+# Start ComfyUI. The Manager will respect the environment variable we set in the Dockerfile.
 echo "Starting ComfyUI..."
-python /home/app/ComfyUI/main.py --listen 0.0.0.0 --port 8188 --disable-manager-auto-install
+python /home/app/ComfyUI/main.py --listen 0.0.0.0 --port 8188
