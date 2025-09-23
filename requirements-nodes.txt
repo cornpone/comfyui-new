@@ -13,3 +13,5 @@ onnxruntime
 uv
 gitpython
 tomli
+# MODIFIED: Added missing dependency for Impact-Pack
+segment-anything

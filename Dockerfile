@@ -1,18 +1,40 @@
 # --- Stage 1: The Builder ---
 FROM python:3.10-slim-bookworm AS builder
+
 ARG DEBIAN_FRONTEND=noninteractive
 ARG USER=app
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git build-essential && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install build-time system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates git build-essential \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create user and directories
 RUN useradd -m -s /bin/bash ${USER}
 WORKDIR /home/${USER}
+
+# Create and set up a virtual environment
 RUN python -m venv /home/${USER}/venv
 ENV PATH=/home/${USER}/venv/bin:$PATH
 ENV PIP_CACHE_DIR=/tmp/pip-cache
 ENV PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cu121"
+
+# Install our base and node dependencies first
 COPY constraints.txt requirements-base.txt requirements-nodes.txt /tmp/
-RUN pip install --upgrade pip && pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt && pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt
+RUN pip install --upgrade pip && \
+    pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt && \
+    pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt
+
+# Clone ComfyUI repository
 ARG COMFY_REF=master
-RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && rm -rf /home/${USER}/ComfyUI/.git
+RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && \
+    rm -rf /home/${USER}/ComfyUI/.git
+
+# --- MODIFIED: Install ComfyUI's own requirements AFTER cloning ---
+# This is the critical step that installs the new frontend packages.
+RUN pip install -r /home/app/ComfyUI/requirements.txt
+
+# Install custom nodes and their specific dependencies
 RUN cd /home/${USER}/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
     git clone https://github.com/Comfy-Org/ComfyUI-Manager.git && \
