@@ -15,14 +15,13 @@ ARG COMFY_REF=master
 RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && rm -rf /home/${USER}/ComfyUI/.git
 RUN pip install -r /home/app/ComfyUI/requirements.txt
 
-# --- MODIFIED: Add SAM2 and remove Manager's startup script ---
+# --- MODIFIED: Removed direct sam2 pip install; it's now in requirements-nodes.txt ---
 RUN cd /home/${USER}/ComfyUI/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
     git clone https://github.com/Comfy-Org/ComfyUI-Manager.git && \
     rm /home/app/ComfyUI/custom_nodes/ComfyUI-Manager/startup.py && \
     cd ComfyUI-Impact-Pack && \
-    COMFYUI_PATH=/home/app/ComfyUI /home/app/venv/bin/python install.py && \
-    pip install git+https://github.com/facebookresearch/sam2
+    COMFYUI_PATH=/home/app/ComfyUI /home/app/venv/bin/python install.py
 
 # --- Stage 2: The Final Image ---
 FROM python:3.10-slim-bookworm
