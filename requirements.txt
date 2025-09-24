@@ -1,0 +1,47 @@
+# This is the single source of truth for all Python dependencies.
+torch==2.4.1
+torchaudio==2.4.1
+torchvision==0.19.1
+# Base ComfyUI and Node Dependencies
+aiohttp==3.9.5
+alembic==1.13.1
+av==13.0.0
+clip-interrogator==0.6.0
+deepdiff==7.0.1
+dill==0.3.8
+einops==0.8.0
+fsspec==2024.6.0
+gitpython==3.1.43
+huggingface-hub==0.23.4
+kornia==0.7.2
+matplotlib==3.9.0
+numba==0.60.0
+numpy==1.26.4
+onnxruntime==1.18.1
+opencv-python-headless==4.10.0.84
+piexif==1.1.3
+Pillow==10.3.0
+psutil==5.9.8
+pydantic==2.7.4
+pydantic-core==2.18.4
+pydantic-settings==2.3.4
+PyYAML==6.0.1
+regex==2024.5.15
+safetensors==0.4.3
+scikit-image==0.24.0
+scipy==1.13.1
+segment-anything
+simpleeval==0.9.13
+spandrel==0.2.1
+SQLAlchemy==2.0.30
+tokenizers==0.19.1
+tomli==2.0.1
+torchsde==0.2.6
+tqdm==4.66.4
+transformers==4.41.2
+ultralytics==8.2.48
+uv==0.1.41
+webcolors==24.11.1
+yarl==1.9.4
+# Git dependencies for Custom Nodes
+git+https://github.com/facebookresearch/sam2.git

@@ -1,49 +1,66 @@
 # --- Stage 1: The Builder ---
+# This stage builds our entire application environment.
 FROM python:3.10-slim-bookworm AS builder
+
 ARG DEBIAN_FRONTEND=noninteractive
 ARG USER=app
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git build-essential && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install build-time system dependencies.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates git build-essential \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create user.
 RUN useradd -m -s /bin/bash ${USER}
 WORKDIR /home/${USER}
+
+# Create and activate a virtual environment.
 RUN python -m venv /home/${USER}/venv
 ENV PATH=/home/${USER}/venv/bin:$PATH
+
+# Install all Python dependencies from our single, unified requirements file.
 ENV PIP_CACHE_DIR=/tmp/pip-cache
 ENV PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cu121"
-COPY constraints.txt requirements-base.txt requirements-nodes.txt /tmp/
-RUN pip install --upgrade pip && pip install -c /tmp/constraints.txt -r /tmp/requirements-base.txt && pip install -c /tmp/constraints.txt -r /tmp/requirements-nodes.txt
-ARG COMFY_REF=master
-RUN git clone --depth 1 --branch ${COMFY_REF} https://github.com/comfyanonymous/ComfyUI.git /home/${USER}/ComfyUI && rm -rf /home/${USER}/ComfyUI/.git
-RUN pip install -r /home/app/ComfyUI/requirements.txt
+COPY requirements.txt /tmp/
+RUN pip install --upgrade pip && pip install -r /tmp/requirements.txt
 
-# --- MODIFIED: Removed direct sam2 pip install; it's now in requirements-nodes.txt ---
-RUN cd /home/${USER}/ComfyUI/custom_nodes && \
-    git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
-    git clone https://github.com/Comfy-Org/ComfyUI-Manager.git && \
-    rm /home/app/ComfyUI/custom_nodes/ComfyUI-Manager/startup.py && \
-    cd ComfyUI-Impact-Pack && \
-    COMFYUI_PATH=/home/app/ComfyUI /home/app/venv/bin/python install.py
-
-# --- Stage 2: The Final Image ---
+# --- Stage 2: The Final Runtime Image ---
+# This stage creates the lean, final image.
 FROM python:3.10-slim-bookworm
+
 ARG DEBIAN_FRONTEND=noninteractive
 ARG USER=app
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 fonts-dejavu-core tini rsync git curl && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install only essential RUNTIME system dependencies.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
+    fonts-dejavu-core tini rsync git curl \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install code-server.
 RUN curl -fsSL https://code-server.dev/install.sh | sh
+
+# Create user.
 RUN useradd -m -s /bin/bash ${USER}
 USER ${USER}
 WORKDIR /home/${USER}
+
+# Copy the pre-built Python environment from the builder.
 COPY --from=builder --chown=${USER}:${USER} /home/${USER}/venv /home/${USER}/venv
-COPY --from=builder --chown=${USER}:${USER} /home/${USER}/ComfyUI /home/${USER}/ComfyUI
-COPY --chown=${USER}:${USER} extra_model_paths.yaml /home/${USER}/ComfyUI/extra_model_paths.yaml
+
+# Now, clone a pristine copy of ComfyUI and custom nodes into a temporary location.
+# This will be used to populate the user's workspace on first launch.
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git /home/app/ComfyUI_pristine && \
+    cd /home/app/ComfyUI_pristine/custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
+    git clone https://github.com/Comfy-Org/ComfyUI-Manager.git
+
+# Copy the configuration and entrypoint scripts.
+COPY --chown=${USER}:${USER} extra_model_paths.yaml /home/app/ComfyUI_pristine/extra_model_paths.yaml
+COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/app/entrypoint.sh
+
+# Set the environment and expose ports.
 ENV PATH=/home/${USER}/venv/bin:$PATH
-ENV HF_HOME=/workspace/.cache/huggingface \
-    TORCH_HOME=/workspace/.cache/torch \
-    XDG_CACHE_HOME=/workspace/.cache \
-    NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility
-COPY --chown=${USER}:${USER} warmup.py /home/${USER}/warmup.py
-RUN python /home/${USER}/warmup.py
-COPY --chown=${USER}:${USER} --chmod=0755 entrypoint.sh /home/${USER}/entrypoint.sh
 EXPOSE 8188 8080
 ENTRYPOINT ["/usr/bin/tini", "-s", "--"]
 CMD ["/home/app/entrypoint.sh"]
