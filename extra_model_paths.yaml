@@ -1,23 +1,22 @@
 # This file tells ComfyUI where to find all your models, inputs, and outputs.
-# By pointing everything to the /workspace directory, we ensure that all your
-# data is stored on the persistent volume.
-# CRITICAL FIX: The 'base_dir' line has been removed to prevent path conflicts.
+# By pointing everything to the /workspace/ComfyUI directory, we ensure that
+# all your data is stored on the persistent volume in a standard layout.
 
 comfyui:
-  checkpoints: /workspace/models/checkpoints
-  clip: /workspace/models/clip
-  clip_vision: /workspace/models/clip_vision
-  configs: /workspace/models/configs
-  controlnet: /workspace/models/controlnet
-  embeddings: /workspace/models/embeddings
-  hypernetworks: /workspace/models/hypernetworks
-  loras: /workspace/models/loras
-  style_models: /workspace/models/style_models
-  upscale_models: /workspace/models/upscale_models
-  vae: /workspace/models/vae
-  vae_approx: /workspace/models/vae_approx
-  yolos: /workspace/models/yolos
+  checkpoints: /workspace/ComfyUI/models/checkpoints
+  clip: /workspace/ComfyUI/models/clip
+  clip_vision: /workspace/ComfyUI/models/clip_vision
+  configs: /workspace/ComfyUI/models/configs
+  controlnet: /workspace/ComfyUI/models/controlnet
+  embeddings: /workspace/ComfyUI/models/embeddings
+  hypernetworks: /workspace/ComfyUI/models/hypernetworks
+  loras: /workspace/ComfyUI/models/loras
+  style_models: /workspace/ComfyUI/models/style_models
+  upscale_models: /workspace/ComfyUI/models/upscale_models
+  vae: /workspace/ComfyUI/models/vae
+  vae_approx: /workspace/ComfyUI/models/vae_approx
+  yolos: /workspace/ComfyUI/models/yolos
   
-  input: /workspace/input
-  output: /workspace/output
-  temp: /workspace/temp
+  input: /workspace/ComfyUI/input
+  output: /workspace/ComfyUI/output
+  temp: /workspace/ComfyUI/temp
